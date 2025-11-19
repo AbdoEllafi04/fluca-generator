@@ -8,29 +8,28 @@ export function activate(context: vscode.ExtensionContext) {
   let disposable = vscode.commands.registerCommand(
     "fluca-generator.createFeature",
     async () => {
-      
-      // 1. التحقق من وجود مشروع مفتوح
+      // 1. Check Workspace
       if (!vscode.workspace.workspaceFolders) {
-        vscode.window.showErrorMessage("Please open a Flutter project folder first.");
+        vscode.window.showErrorMessage(
+          "Please open a Flutter project folder first."
+        );
         return;
       }
 
-      // 2. طلب الأسماء
+      // 2. Get Feature Names
       const input = await vscode.window.showInputBox({
-        prompt: 'Enter Feature Names separated by space (e.g. "auth home settings")',
+        prompt: 'Enter Feature Names (e.g. "auth home settings")',
         placeHolder: "auth home profile",
       });
 
-      if (!input || input.trim() === "") {
-        return;
-      }
+      if (!input || input.trim() === "") return;
 
-      const featureNames = input.split(" ").filter((name) => name.trim() !== "");
-
-      // تحديد مسار الروت (جذر المشروع) لاستخدامه لاحقاً
+      const featureNames = input
+        .split(" ")
+        .filter((name) => name.trim() !== "");
       const projectRoot = vscode.workspace.workspaceFolders[0].uri.fsPath;
 
-      // 3. اقتراح مكان الفيتشرز
+      // 3. Select Location
       let defaultUri: vscode.Uri | undefined;
       const featuresPath = path.join(projectRoot, "lib", "features");
       if (fs.existsSync(featuresPath)) {
@@ -39,7 +38,6 @@ export function activate(context: vscode.ExtensionContext) {
         defaultUri = vscode.Uri.file(path.join(projectRoot, "lib"));
       }
 
-      // 4. فتح نافذة اختيار مكان الفيتشرز
       const folderResult = await vscode.window.showOpenDialog({
         canSelectFiles: false,
         canSelectFolders: true,
@@ -48,17 +46,12 @@ export function activate(context: vscode.ExtensionContext) {
         openLabel: "Select Location",
       });
 
-      if (!folderResult || folderResult.length === 0) {
-        return;
-      }
+      if (!folderResult || folderResult.length === 0) return;
 
-      // هذا المسار اللي اختاره المستخدم عشان يحط فيه الفيتشرز
       const targetDirectory = folderResult[0].fsPath;
 
-      // --- 5. منطق إنشاء Core Layer (التعديل الجديد) ---
-      // هنا اجبرناه يمشي لـ lib/core مباشرة اعتماداً على جذر المشروع
+      // 4. Generate Core Layer (Always in lib/core)
       const corePath = path.join(projectRoot, "lib", "core");
-
       if (!fs.existsSync(corePath)) {
         const coreFolders = [
           corePath,
@@ -68,7 +61,6 @@ export function activate(context: vscode.ExtensionContext) {
           path.join(corePath, "api"),
           path.join(corePath, "widgets"),
         ];
-
         try {
           coreFolders.forEach((folder) =>
             fs.mkdirSync(folder, { recursive: true })
@@ -80,12 +72,13 @@ export function activate(context: vscode.ExtensionContext) {
           console.error("Error creating core:", e);
         }
       }
-      // -----------------------------------------------
 
-      // 6. إنشاء الفيتشرز (في المكان اللي اختاره المستخدم)
+      // 5. Loop through features
       let createdCount = 0;
       featureNames.forEach((rawName) => {
-        const featureName = rawName.toLowerCase().trim();
+        const featureName = rawName.toLowerCase().trim(); // e.g. "auth"
+        const pascalCaseName =
+          rawName.charAt(0).toUpperCase() + rawName.slice(1); // e.g. "Auth"
         const featurePath = path.join(targetDirectory, featureName);
 
         if (fs.existsSync(featurePath)) {
@@ -95,23 +88,97 @@ export function activate(context: vscode.ExtensionContext) {
           return;
         }
 
+        // Define Paths
+        const dataPath = path.join(featurePath, "data");
+        const domainPath = path.join(featurePath, "domain");
+        const presentationPath = path.join(featurePath, "presentation");
+
+        // Define Folders
         const folders = [
           featurePath,
-          path.join(featurePath, "data", "datasources"),
-          path.join(featurePath, "data", "models"),
-          path.join(featurePath, "data", "repositories"),
-          path.join(featurePath, "domain", "entities"),
-          path.join(featurePath, "domain", "repositories"),
-          path.join(featurePath, "domain", "usecases"),
-          path.join(featurePath, "presentation", "state_management"),
-          path.join(featurePath, "presentation", "pages"),
-          path.join(featurePath, "presentation", "widgets"),
+          path.join(dataPath, "datasources"),
+          path.join(dataPath, "models"),
+          path.join(dataPath, "repositories"),
+          path.join(domainPath, "entities"),
+          path.join(domainPath, "repositories"),
+          path.join(domainPath, "usecases"),
+          path.join(presentationPath, "manager"),
+          path.join(presentationPath, "pages"),
+          path.join(presentationPath, "widgets"),
         ];
 
         try {
+          // Create Folders
           folders.forEach((folder) =>
             fs.mkdirSync(folder, { recursive: true })
           );
+
+          // --- إنشاء الملفات المطلوبة فقط ---
+
+          // 1. Domain Layer: Entity
+          createFile(
+            path.join(domainPath, "entities", `${featureName}_entity.dart`),
+            `class ${pascalCaseName}Entity {\n  const ${pascalCaseName}Entity();\n}`
+          );
+
+          // 2. Domain Layer: Repository Interface
+          createFile(
+            path.join(
+              domainPath,
+              "repositories",
+              `${featureName}_repository.dart`
+            ),
+            `abstract class ${pascalCaseName}Repository {\n  // Future<void> exampleMethod();\n}`
+          );
+
+          // (اختياري) UseCase - لو تبي تلغيه امسح السطرين الجايين
+          createFile(
+            path.join(
+              domainPath,
+              "usecases",
+              `get_${featureName}_usecase.dart`
+            ),
+            `class Get${pascalCaseName}UseCase {\n  const Get${pascalCaseName}UseCase();\n}`
+          );
+
+          // 3. Data Layer: Model
+          createFile(
+            path.join(dataPath, "models", `${featureName}_model.dart`),
+            `import '../../domain/entities/${featureName}_entity.dart';\n\nclass ${pascalCaseName}Model extends ${pascalCaseName}Entity {\n  const ${pascalCaseName}Model();\n  \n  factory ${pascalCaseName}Model.fromJson(Map<String, dynamic> json) {\n    return ${pascalCaseName}Model();\n  }\n}`
+          );
+
+          // 4. Data Layer: Remote Data Source
+          createFile(
+            path.join(
+              dataPath,
+              "datasources",
+              `${featureName}_remote_data_source.dart`
+            ),
+            `abstract class ${pascalCaseName}RemoteDataSource {\n  // Future<void> exampleMethod();\n}`
+          );
+
+          // 5. Data Layer: Local Data Source
+          createFile(
+            path.join(
+              dataPath,
+              "datasources",
+              `${featureName}_local_data_source.dart`
+            ),
+            `abstract class ${pascalCaseName}LocalDataSource {\n  // Future<void> cacheData();\n}`
+          );
+
+          // 6. Data Layer: Repository Implementation
+          createFile(
+            path.join(
+              dataPath,
+              "repositories",
+              `${featureName}_repository_impl.dart`
+            ),
+            `import '../../domain/repositories/${featureName}_repository.dart';\nimport '../datasources/${featureName}_remote_data_source.dart';\n\nclass ${pascalCaseName}RepositoryImpl implements ${pascalCaseName}Repository {\n  final ${pascalCaseName}RemoteDataSource remoteDataSource;\n\n  ${pascalCaseName}RepositoryImpl({required this.remoteDataSource});\n}`
+          );
+
+          // ملاحظة: تم إزالة كود إنشاء الصفحات (Pages) كما طلبت ✅
+
           createdCount++;
         } catch (err) {
           vscode.window.showErrorMessage(`Error creating "${featureName}"`);
@@ -120,13 +187,20 @@ export function activate(context: vscode.ExtensionContext) {
 
       if (createdCount > 0) {
         vscode.window.showInformationMessage(
-          `🚀 Successfully created ${createdCount} feature(s) with Clean Architecture!`
+          `🚀 Created ${createdCount} features (Entities, Models, Repos, DataSources)!`
         );
       }
     }
   );
 
   context.subscriptions.push(disposable);
+}
+
+// Helper Function
+function createFile(filePath: string, content: string) {
+  if (!fs.existsSync(filePath)) {
+    fs.writeFileSync(filePath, content);
+  }
 }
 
 export function deactivate() {}

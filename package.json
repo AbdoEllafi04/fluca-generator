@@ -3,7 +3,7 @@
   "displayName": "FluCa Generator",
   "publisher": "AbdulrahmanEllafi",
   "description": "Generates Data, Domain, and Presentation layers for Flutter features instantly.",
-  "version": "0.0.7",
+  "version": "0.0.8",
   "icon": "icon.png",
   "license": "MIT",
   "repository": {
