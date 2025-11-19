@@ -3,8 +3,17 @@
   "displayName": "FluCa Generator",
   "publisher": "AbdulrahmanEllafi",
   "description": "Generates Data, Domain, and Presentation layers for Flutter features instantly.",
-  "version": "0.0.5",
+  "version": "0.0.6",
   "icon": "icon.png",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/AbdoEllafi04/fluca-generator.git"
+  },
+  "bugs": {
+    "url": "https://github.com/AbdoEllafi04/fluca-generator/issues"
+  },
+  "homepage": "https://github.com/AbdoEllafi04/fluca-generator/blob/main/README.md",
   "engines": {
     "vscode": "^1.100.0"
   },
